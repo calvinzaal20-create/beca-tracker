@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(node -e \"const nm = require\\('nodemailer'\\); console.log\\(typeof nm.createTransport, Object.keys\\(nm\\).slice\\(0,10\\)\\)\")",
+      "Bash(node -e \"const nm = require\\('./node_modules/nodemailer'\\); console.log\\(typeof nm.createTransport, Object.keys\\(nm\\).slice\\(0,10\\)\\)\")",
+      "Bash(node -e ':*)",
+      "Bash(node src/index.js)",
+      "Bash(curl -s http://localhost:3001/health)",
+      "Bash(curl -s -X POST http://localhost:3001/api/track -H 'Content-Type: application/json' -d '{\"session_id\":\"test-sessie-001\",\"page_url\":\"http://localhost/diensten\",\"page_title\":\"Onze Diensten\",\"referrer\":\"\"}')",
+      "Bash(curl -s \"http://localhost:3001/api/dashboard/visitors\")",
+      "Bash(curl -s \"http://localhost:3001/api/dashboard/stats\")",
+      "Bash(npm start:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(npx kill-port:*)",
+      "Bash(netstat -ano)",
+      "Bash(findstr \":3000\")",
+      "Bash(awk '{print $5}')",
+      "Bash(xargs taskkill:*)"
+    ]
+  }
+}
