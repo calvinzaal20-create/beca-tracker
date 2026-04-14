@@ -62,11 +62,12 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Interne serverfout.' });
 });
 
-app.listen(PORT, () => {
+// Luister op 0.0.0.0 zodat Railway (en andere cloud platforms) bereikbaar zijn
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`
   ╔══════════════════════════════════════════╗
   ║   BECA One - Visitor Tracker Backend     ║
-  ║   Draait op http://localhost:${PORT}        ║
+  ║   Draait op http://0.0.0.0:${PORT}          ║
   ╚══════════════════════════════════════════╝
   `);
 });
