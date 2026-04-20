@@ -35,18 +35,16 @@
   }
 
   function send(endpoint, payload) {
+    // Gebruik altijd fetch met keepalive=true.
+    // sendBeacon met application/json triggert CORS preflight problemen;
+    // fetch+keepalive werkt betrouwbaar en ondersteunt JSON natively.
     try {
-      var body = JSON.stringify(payload);
-      if (navigator.sendBeacon) {
-        navigator.sendBeacon(endpoint, new Blob([body], { type: 'application/json' }));
-      } else {
-        fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: body,
-          keepalive: true,
-        }).catch(function () {});
-      }
+      fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        keepalive: true,
+      }).catch(function () {});
     } catch (e) {}
   }
 

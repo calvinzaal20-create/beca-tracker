@@ -1,43 +1,42 @@
 import React from 'react';
 
-const ACCENT_COLORS = {
-  blue:   { bg: 'rgba(59,130,246,0.08)',  border: 'rgba(59,130,246,0.3)',  text: '#60a5fa', glow: '0 0 20px rgba(59,130,246,0.15)' },
-  gold:   { bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.3)',  text: '#fbbf24', glow: '0 0 20px rgba(245,158,11,0.15)' },
-  green:  { bg: 'rgba(16,185,129,0.08)',  border: 'rgba(16,185,129,0.3)',  text: '#34d399', glow: '0 0 20px rgba(16,185,129,0.15)' },
-  purple: { bg: 'rgba(139,92,246,0.08)',  border: 'rgba(139,92,246,0.3)',  text: '#a78bfa', glow: '0 0 20px rgba(139,92,246,0.15)' },
-};
-
-export function StatCard({ title, value, subtitle, color = 'blue', icon, trend }) {
-  const c = ACCENT_COLORS[color] || ACCENT_COLORS.blue;
+export function StatCard({ title, value, subtitle, delta, accent = false }) {
   return (
-    <div style={{ ...styles.card, background: c.bg, border: `1px solid ${c.border}`, boxShadow: c.glow }}>
-      <div style={styles.top}>
-        <div style={{ ...styles.iconWrap, color: c.text }}>{icon}</div>
+    <div style={{
+      background: '#111115',
+      border: '1px solid rgba(255,255,255,0.07)',
+      borderRadius: 12,
+      padding: '20px 24px',
+      flex: '1 1 160px',
+      minWidth: 150,
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+      {accent && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: 1,
+          background: 'linear-gradient(90deg, transparent, #3b82f6, transparent)',
+        }} />
+      )}
+      <div style={{ fontSize: 12, color: '#71717a', fontWeight: 500, marginBottom: 10, letterSpacing: '0.01em' }}>
+        {title}
       </div>
-      <div style={{ ...styles.value, color: c.text }}>{value ?? '—'}</div>
-      <div style={styles.title}>{title}</div>
-      {subtitle && <div style={styles.subtitle}>{subtitle}</div>}
-      {trend !== undefined && (
-        <div style={{ ...styles.trend, color: trend >= 0 ? '#34d399' : '#f87171' }}>
-          {trend >= 0 ? '↑' : '↓'} {Math.abs(trend)}% vs vorige periode
+      <div style={{ fontSize: 28, fontWeight: 600, color: '#fafafa', lineHeight: 1, letterSpacing: '-0.5px' }}>
+        {value ?? '—'}
+      </div>
+      {(subtitle || delta !== undefined) && (
+        <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+          {delta !== undefined && (
+            <span style={{
+              fontSize: 12, fontWeight: 500,
+              color: delta >= 0 ? '#22c55e' : '#ef4444',
+            }}>
+              {delta >= 0 ? '+' : ''}{delta}%
+            </span>
+          )}
+          {subtitle && <span style={{ fontSize: 12, color: '#52525b' }}>{subtitle}</span>}
         </div>
       )}
     </div>
   );
 }
-
-const styles = {
-  card: {
-    borderRadius: 16,
-    padding: '20px 24px',
-    flex: '1 1 180px',
-    minWidth: 160,
-    backdropFilter: 'blur(10px)',
-  },
-  top: { display: 'flex', justifyContent: 'flex-end', marginBottom: 12 },
-  iconWrap: { fontSize: 22, opacity: 0.8 },
-  value: { fontSize: 36, fontWeight: 800, lineHeight: 1, letterSpacing: '-1px', marginBottom: 6 },
-  title: { fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b' },
-  subtitle: { fontSize: 11, color: '#475569', marginTop: 4 },
-  trend: { fontSize: 11, fontWeight: 600, marginTop: 8 },
-};

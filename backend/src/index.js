@@ -32,13 +32,17 @@ app.use(
 );
 
 // --- Body parsing ---
-app.use(express.json({ limit: '10kb' }));
+// Track + dashboard: kleine payloads (10kb is genoeg)
+// Sessions: rrweb chunks kunnen 500kb+ zijn
+app.use('/api/sessions', express.json({ limit: '5mb' }));
+app.use(express.json({ limit: '50kb' }));
 
 // --- Rate limiting voor het track endpoint ---
-// Voorkomt misbruik: max 30 requests per minuut per IP
+// Heartbeats (15s) + recording flushes (10s) = ~7 req/min per bezoeker
+// Zet limiet ruim genoeg om echte bezoekers nooit te blokkeren
 const trackLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 30,
+  max: 120,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Te veel verzoeken. Probeer het later opnieuw.' },
@@ -53,6 +57,26 @@ app.use('/api/dashboard',  dashboardRouter);
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Debug: laatste 10 bezoekers + page views (geen auth vereist)
+app.get('/api/debug', async (req, res) => {
+  try {
+    const supabase = require('./config/supabase');
+    const [visitors, pageViews] = await Promise.all([
+      supabase.from('visitors').select('id,ip_address,company_name,city,country,last_seen,visit_count').order('last_seen', { ascending: false }).limit(10),
+      supabase.from('page_views').select('id,page_url,created_at,duration_sec').order('created_at', { ascending: false }).limit(10),
+    ]);
+    res.json({
+      status: 'ok',
+      serverTime: new Date().toISOString(),
+      recentVisitors: visitors.data || [],
+      recentPageViews: pageViews.data || [],
+      errors: { visitors: visitors.error?.message, pageViews: pageViews.error?.message },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // 404 handler

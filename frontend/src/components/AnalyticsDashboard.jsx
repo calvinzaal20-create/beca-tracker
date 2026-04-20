@@ -18,81 +18,112 @@ export function AnalyticsDashboard() {
 
   return (
     <div>
-      {/* Periode selector */}
-      <div style={styles.periodRow}>
+      {/* Periode + refresh */}
+      <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:28 }}>
         {[7, 30, 90].map(d => (
           <button key={d}
-            style={{ ...styles.periodBtn, ...(days === d ? styles.periodBtnActive : {}) }}
-            onClick={() => setDays(d)}>
+            onClick={() => setDays(d)}
+            style={{
+              padding:'5px 14px', borderRadius:8, fontSize:12, fontWeight:500, cursor:'pointer',
+              border: days === d ? '1px solid rgba(59,130,246,0.4)' : '1px solid rgba(255,255,255,0.07)',
+              background: days === d ? 'rgba(59,130,246,0.1)' : 'transparent',
+              color: days === d ? '#3b82f6' : '#52525b',
+            }}>
             {d} dagen
           </button>
         ))}
-        <button style={styles.refreshBtn} onClick={refresh}>↻ Vernieuwen</button>
+        <button
+          onClick={refresh}
+          style={{
+            marginLeft:'auto', padding:'5px 14px', borderRadius:8, fontSize:12,
+            border:'1px solid rgba(255,255,255,0.07)', background:'transparent',
+            color:'#3f3f46', cursor:'pointer',
+          }}>
+          ↻ Vernieuwen
+        </button>
       </div>
 
-      {/* ── Sessie KPIs ── */}
-      <div style={styles.kpiGrid}>
-        <KpiCard label="Sessies"            value={s.totalSessions}       icon="📊" />
-        <KpiCard label="Pagina's/sessie"    value={s.avgPagesPerSession}  icon="📄" />
-        <KpiCard label="Gem. sessieduur"    value={fmtDur(s.avgSessionDuration)} icon="⏱️" />
-        <KpiCard label="Bounce rate"        value={`${s.bounceRate}%`}    icon="🚪"
-          color={s.bounceRate > 60 ? '#f87171' : s.bounceRate < 30 ? '#34d399' : '#fbbf24'} />
-        <KpiCard label="Terugkeerquote"     value={`${s.returnRate}%`}    icon="🔄"
-          color={s.returnRate > 25 ? '#34d399' : '#94a3b8'} />
-        <KpiCard label="Terugk. bedrijven"  value={s.returningVisitors}   icon="🏢" />
+      {/* KPI strip */}
+      <div style={{ display:'flex', flexWrap:'wrap', gap:12, marginBottom:24 }}>
+        <KpiCard label="Sessies"         value={s.totalSessions} />
+        <KpiCard label="Pagina's/sessie" value={s.avgPagesPerSession} />
+        <KpiCard label="Gem. sessieduur" value={fmtDur(s.avgSessionDuration)} />
+        <KpiCard label="Bounce rate"     value={`${s.bounceRate}%`}
+          color={s.bounceRate > 60 ? '#ef4444' : s.bounceRate < 30 ? '#22c55e' : '#fbbf24'} />
+        <KpiCard label="Terugkeerquote"  value={`${s.returnRate}%`}
+          color={s.returnRate > 25 ? '#22c55e' : '#71717a'} />
+        <KpiCard label="Terugk. bedrijven" value={s.returningVisitors} />
       </div>
 
-      {/* ── Automatische aanbevelingen ── */}
+      {/* Aanbevelingen */}
       {insights.length > 0 && (
-        <Section title="💡 Automatische aanbevelingen">
-          <div style={styles.insightGrid}>
-            {insights.map((ins, i) => (
-              <div key={i} style={{ ...styles.insightCard, ...insightStyle(ins.type) }}>
-                <div style={styles.insightIcon}>{ins.icon}</div>
-                <div>
-                  <div style={styles.insightTitle}>{ins.title}</div>
-                  <div style={styles.insightText}>{ins.text}</div>
+        <div style={{ marginBottom:24 }}>
+          <SectionLabel>Automatische aanbevelingen</SectionLabel>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {insights.map((ins, i) => {
+              const colors = {
+                positive: { border:'rgba(34,197,94,0.2)',  bg:'rgba(34,197,94,0.05)',  dot:'#22c55e' },
+                warning:  { border:'rgba(239,68,68,0.2)',  bg:'rgba(239,68,68,0.05)',  dot:'#ef4444' },
+                tip:      { border:'rgba(59,130,246,0.2)', bg:'rgba(59,130,246,0.05)', dot:'#3b82f6' },
+              };
+              const c = colors[ins.type] || colors.tip;
+              return (
+                <div key={i} style={{
+                  display:'flex', gap:14, padding:'14px 18px', borderRadius:10,
+                  background:c.bg, border:`1px solid ${c.border}`, alignItems:'flex-start',
+                }}>
+                  <div style={{ width:6, height:6, borderRadius:'50%', background:c.dot, flexShrink:0, marginTop:5 }} />
+                  <div>
+                    <div style={{ fontWeight:600, color:'#fafafa', fontSize:13, marginBottom:3 }}>{ins.title}</div>
+                    <div style={{ fontSize:12, color:'#71717a', lineHeight:1.5 }}>{ins.text}</div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
-        </Section>
+        </div>
       )}
 
-      <div style={styles.twoCol}>
+      {/* Twee kolommen: pagina performance + engagement */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>
 
-        {/* ── Pagina performance ── */}
-        <Section title="Pagina performance">
-          <div style={styles.tableWrap}>
-            <table style={styles.table}>
+        {/* Pagina performance */}
+        <Card>
+          <SectionLabel>Pagina performance</SectionLabel>
+          <div style={{ overflowX:'auto' }}>
+            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
               <thead>
                 <tr>
-                  {['Pagina', 'Views', 'Gem. tijd', 'Bounce', 'Score'].map(h => (
-                    <th key={h} style={styles.th}>{h}</th>
+                  {['Pagina','Views','Tijd','Bounce','Score'].map(h => (
+                    <th key={h} style={{
+                      padding:'7px 10px', textAlign:'left',
+                      fontSize:10, fontWeight:500, color:'#3f3f46',
+                      textTransform:'uppercase', letterSpacing:'0.05em',
+                      borderBottom:'1px solid rgba(255,255,255,0.06)',
+                    }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {pagePerformance.slice(0, 10).map(p => (
-                  <tr key={p.url} style={styles.tr}>
-                    <td style={styles.td}>
-                      <div style={styles.pageUrl} title={p.url}>{p.url}</div>
-                      {p.title && p.title !== p.url && (
-                        <div style={styles.pageTitle}>{p.title}</div>
-                      )}
+                  <tr key={p.url} style={{ borderBottom:'1px solid rgba(255,255,255,0.04)' }}>
+                    <td style={{ padding:'9px 10px', maxWidth:140 }}>
+                      <div style={{ fontFamily:'monospace', fontSize:11, color:'#60a5fa', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }} title={p.url}>
+                        {p.url}
+                      </div>
                     </td>
-                    <td style={{ ...styles.td, ...styles.center }}>{p.views}</td>
-                    <td style={{ ...styles.td, ...styles.center }}>
-                      <span style={{ color: p.avgDuration > 60 ? '#34d399' : p.avgDuration > 20 ? '#fbbf24' : '#f87171' }}>
+                    <td style={{ padding:'9px 10px', textAlign:'center', color:'#a1a1aa' }}>{p.views}</td>
+                    <td style={{ padding:'9px 10px', textAlign:'center' }}>
+                      <span style={{ color: p.avgDuration > 60 ? '#22c55e' : p.avgDuration > 20 ? '#fbbf24' : '#ef4444', fontSize:11 }}>
                         {p.avgDuration > 0 ? fmtDur(p.avgDuration) : '—'}
                       </span>
                     </td>
-                    <td style={{ ...styles.td, ...styles.center }}>
-                      <span style={{ color: p.bounceRate > 60 ? '#f87171' : p.bounceRate < 30 ? '#34d399' : '#fbbf24' }}>
+                    <td style={{ padding:'9px 10px', textAlign:'center' }}>
+                      <span style={{ color: p.bounceRate > 60 ? '#ef4444' : p.bounceRate < 30 ? '#22c55e' : '#fbbf24', fontSize:11 }}>
                         {p.bounceRate}%
                       </span>
                     </td>
-                    <td style={{ ...styles.td, ...styles.center }}>
+                    <td style={{ padding:'9px 10px', textAlign:'center' }}>
                       <ScoreBar score={p.engagementScore} />
                     </td>
                   </tr>
@@ -100,158 +131,197 @@ export function AnalyticsDashboard() {
               </tbody>
             </table>
           </div>
-        </Section>
+        </Card>
 
-        {/* ── Engagement leaderboard ── */}
-        <Section title="🏆 Engagement leaderboard">
+        {/* Engagement leaderboard */}
+        <Card>
+          <SectionLabel>Engagement leaderboard</SectionLabel>
           {engagementLeaderboard.length === 0
-            ? <Empty text="Nog geen engagement data" />
+            ? <Empty />
             : engagementLeaderboard.map((e, i) => (
-              <div key={e.visitorId} style={styles.leaderRow}>
-                <div style={styles.leaderRank}>#{i + 1}</div>
-                <div style={styles.leaderInfo}>
-                  <div style={styles.leaderName}>
-                    {e.isInteresting && <span style={{ color: '#fbbf24' }}>★ </span>}
+              <div key={e.visitorId} style={{
+                display:'flex', alignItems:'center', gap:12, padding:'9px 0',
+                borderBottom:'1px solid rgba(255,255,255,0.04)',
+              }}>
+                <div style={{ fontSize:11, color:'#3f3f46', fontWeight:600, width:20, textAlign:'center' }}>
+                  {i + 1}
+                </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:13, fontWeight:500, color: e.isInteresting ? '#fbbf24' : '#fafafa',
+                    overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                     {e.companyName}
                   </div>
-                  <div style={styles.leaderMeta}>
+                  <div style={{ fontSize:11, color:'#52525b', marginTop:2 }}>
                     {e.pageViews} views · {e.sessions} sessies · {fmtDur(e.totalDuration)}
-                    {e.city ? ` · ${e.city}` : ''}
                   </div>
                 </div>
-                <div style={styles.leaderScoreWrap}>
-                  <div style={{ ...styles.leaderScore, color: scoreColor(e.score) }}>
-                    {e.score}
-                  </div>
-                  <div style={styles.leaderScoreLabel}>score</div>
+                <div style={{ textAlign:'center', flexShrink:0 }}>
+                  <div style={{ fontSize:18, fontWeight:600, lineHeight:1, color: scoreColor(e.score) }}>{e.score}</div>
+                  <div style={{ fontSize:9, color:'#3f3f46', textTransform:'uppercase', letterSpacing:'0.05em', marginTop:2 }}>score</div>
                 </div>
               </div>
             ))
           }
-        </Section>
+        </Card>
       </div>
 
-      <div style={styles.twoCol}>
+      {/* Twee kolommen: navigatiepaden + entry/exit */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>
 
-        {/* ── Navigatiepaden ── */}
-        <Section title="🗺️ Meest gevolgde routes">
+        {/* Navigatiepaden */}
+        <Card>
+          <SectionLabel>Meest gevolgde routes</SectionLabel>
           {topPaths.length === 0
-            ? <Empty text="Nog geen navigatiedata (minimaal 2 pagina's per sessie)" />
+            ? <Empty text="Minimaal 2 pagina's per sessie nodig" />
             : topPaths.map((p, i) => (
-              <div key={i} style={styles.pathRow}>
-                <div style={styles.pathLine}>{p.path}</div>
-                <span style={styles.pathCount}>{p.count}x</span>
+              <div key={i} style={{
+                display:'flex', justifyContent:'space-between', alignItems:'center',
+                padding:'8px 0', borderBottom:'1px solid rgba(255,255,255,0.04)', gap:8,
+              }}>
+                <div style={{ fontSize:11, fontFamily:'monospace', color:'#71717a',
+                  overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>
+                  {p.path}
+                </div>
+                <span style={{ fontSize:11, fontWeight:600, color:'#3b82f6', flexShrink:0 }}>{p.count}×</span>
               </div>
             ))
           }
-        </Section>
+        </Card>
 
-        {/* ── Entry & Exit pagina's ── */}
-        <div>
-          <Section title="🚀 Instappagina's">
+        {/* Entry & Exit */}
+        <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+          <Card>
+            <SectionLabel>Instappagina's</SectionLabel>
             {topEntryPages.map((p, i) => (
-              <MiniBar key={i} label={p.url} value={p.count}
-                max={topEntryPages[0]?.count || 1} color="#3b82f6" />
+              <MiniBar key={i} label={p.url} value={p.count} max={topEntryPages[0]?.count || 1} color="#3b82f6" />
             ))}
-          </Section>
-          <Section title="🚪 Exitpagina's">
+          </Card>
+          <Card>
+            <SectionLabel>Exitpagina's</SectionLabel>
             {topExitPages.map((p, i) => (
-              <MiniBar key={i} label={p.url} value={p.count}
-                max={topExitPages[0]?.count || 1} color="#8b5cf6" />
+              <MiniBar key={i} label={p.url} value={p.count} max={topExitPages[0]?.count || 1} color="#8b5cf6" />
             ))}
-          </Section>
+          </Card>
         </div>
       </div>
 
-      {/* ── Piekuren ── */}
-      <Section title="🕐 Activiteit per uur van de dag">
-        <div style={styles.hourGrid}>
-          {peakHours.map(({ hour, count }) => (
-            <div key={hour} style={styles.hourCol}>
-              <div style={styles.hourBarWrap}>
-                <div style={{
-                  ...styles.hourBar,
-                  height: `${Math.max(4, (count / peakMax) * 80)}px`,
-                  background: count === Math.max(...peakHours.map(h => h.count))
-                    ? '#3b82f6' : 'rgba(59,130,246,0.3)',
-                }} />
+      {/* Piekuren */}
+      <Card>
+        <SectionLabel>Activiteit per uur van de dag</SectionLabel>
+        <div style={{ display:'flex', gap:3, alignItems:'flex-end', height:100, marginBottom:8 }}>
+          {peakHours.map(({ hour, count }) => {
+            const isPeak = count === Math.max(...peakHours.map(h => h.count));
+            return (
+              <div key={hour} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
+                <div style={{ height:80, display:'flex', alignItems:'flex-end' }}>
+                  <div style={{
+                    width:'100%', minWidth:6,
+                    height:`${Math.max(2, (count / peakMax) * 80)}px`,
+                    background: isPeak ? '#3b82f6' : 'rgba(59,130,246,0.25)',
+                    borderRadius:'3px 3px 0 0',
+                    transition:'height 0.4s ease',
+                  }} />
+                </div>
+                <div style={{ fontSize:9, color:'#3f3f46' }}>{String(hour).padStart(2,'0')}</div>
               </div>
-              <div style={styles.hourLabel}>{String(hour).padStart(2,'0')}</div>
-              {count > 0 && <div style={styles.hourCount}>{count}</div>}
+            );
+          })}
+        </div>
+        {(() => {
+          const peak = peakHours.reduce((a, b) => b.count > a.count ? b : a, peakHours[0]);
+          return peak?.count > 0 ? (
+            <div style={{ fontSize:12, color:'#52525b', textAlign:'center' }}>
+              Piekuur: <span style={{ color:'#fafafa' }}>{String(peak.hour).padStart(2,'0')}:00–{String(peak.hour+1).padStart(2,'0')}:00</span>
+              {' '}({peak.count} pageviews)
             </div>
-          ))}
-        </div>
-        <div style={styles.hourHint}>
-          {(() => {
-            const peak = peakHours.reduce((a, b) => b.count > a.count ? b : a, peakHours[0]);
-            return peak?.count > 0
-              ? `Piekuur: ${String(peak.hour).padStart(2,'0')}:00–${String(peak.hour+1).padStart(2,'0')}:00 (${peak.count} pageviews)`
-              : 'Nog geen piekuurdata';
-          })()}
-        </div>
-      </Section>
+          ) : (
+            <div style={{ fontSize:12, color:'#3f3f46', textAlign:'center' }}>Nog geen piekuurdata</div>
+          );
+        })()}
+      </Card>
     </div>
   );
 }
 
 /* ── Sub-componenten ── */
 
-function KpiCard({ label, value, icon, color = '#60a5fa' }) {
+function Card({ children }) {
   return (
-    <div style={styles.kpiCard}>
-      <div style={styles.kpiIcon}>{icon}</div>
-      <div style={{ ...styles.kpiValue, color }}>{value}</div>
-      <div style={styles.kpiLabel}>{label}</div>
+    <div style={{
+      background:'#111115', border:'1px solid rgba(255,255,255,0.07)',
+      borderRadius:12, padding:'18px 20px',
+    }}>
+      {children}
+    </div>
+  );
+}
+
+function SectionLabel({ children }) {
+  return (
+    <div style={{
+      fontSize:10, fontWeight:600, textTransform:'uppercase',
+      letterSpacing:'0.07em', color:'#3f3f46', marginBottom:14,
+    }}>
+      {children}
+    </div>
+  );
+}
+
+function KpiCard({ label, value, color = '#fafafa' }) {
+  return (
+    <div style={{
+      flex:'1 1 130px', background:'#111115',
+      border:'1px solid rgba(255,255,255,0.07)',
+      borderRadius:12, padding:'16px 20px', textAlign:'center',
+    }}>
+      <div style={{ fontSize:26, fontWeight:600, lineHeight:1, marginBottom:6, color }}>{value}</div>
+      <div style={{ fontSize:10, color:'#3f3f46', fontWeight:500, textTransform:'uppercase', letterSpacing:'0.06em' }}>
+        {label}
+      </div>
     </div>
   );
 }
 
 function ScoreBar({ score }) {
-  const color = score >= 70 ? '#34d399' : score >= 40 ? '#fbbf24' : '#f87171';
+  const color = score >= 70 ? '#22c55e' : score >= 40 ? '#fbbf24' : '#ef4444';
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
-      <div style={{ width: 48, height: 5, background: '#1e2d3d', borderRadius: 3, overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${score}%`, background: color, borderRadius: 3 }} />
+    <div style={{ display:'flex', alignItems:'center', gap:5, justifyContent:'center' }}>
+      <div style={{ width:40, height:4, background:'rgba(255,255,255,0.06)', borderRadius:2, overflow:'hidden' }}>
+        <div style={{ height:'100%', width:`${score}%`, background:color, borderRadius:2 }} />
       </div>
-      <span style={{ fontSize: 11, color, fontWeight: 700, width: 24 }}>{score}</span>
+      <span style={{ fontSize:10, color, fontWeight:600, width:22 }}>{score}</span>
     </div>
   );
 }
 
 function MiniBar({ label, value, max, color }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 7 }}>
-      <div style={{ width: 130, fontSize: 11, color: '#94a3b8', fontFamily: 'monospace',
-        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0 }}
+    <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:7 }}>
+      <div style={{ width:110, fontSize:11, color:'#71717a', fontFamily:'monospace',
+        overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flexShrink:0 }}
         title={label}>{label}</div>
-      <div style={{ flex: 1, height: 5, background: '#1e2d3d', borderRadius: 3, overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${(value/max)*100}%`, background: color, borderRadius: 3,
-          transition: 'width 0.5s ease' }} />
+      <div style={{ flex:1, height:4, background:'rgba(255,255,255,0.06)', borderRadius:2, overflow:'hidden' }}>
+        <div style={{ height:'100%', width:`${(value/max)*100}%`, background:color, borderRadius:2, transition:'width 0.5s ease' }} />
       </div>
-      <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', width: 20, textAlign: 'right' }}>{value}</div>
+      <div style={{ fontSize:11, fontWeight:600, color:'#52525b', width:18, textAlign:'right' }}>{value}</div>
     </div>
   );
 }
 
-function Section({ title, children }) {
-  return (
-    <div style={styles.section}>
-      <div style={styles.sectionTitle}>{title}</div>
-      {children}
-    </div>
-  );
-}
-
-function Empty({ text }) {
-  return <div style={{ color: '#334155', fontSize: 13, padding: '12px 0', textAlign: 'center' }}>{text}</div>;
+function Empty({ text = 'Geen data beschikbaar' }) {
+  return <div style={{ color:'#3f3f46', fontSize:12, padding:'10px 0', textAlign:'center' }}>{text}</div>;
 }
 
 function LoadingSkeleton() {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
       {[80, 200, 160].map((h, i) => (
-        <div key={i} style={{ height: h, borderRadius: 12, background: '#0d1526',
-          border: '1px solid #1e2d3d', animation: 'pulse 1.5s infinite' }} />
+        <div key={i} style={{
+          height:h, borderRadius:12,
+          background:'#111115',
+          border:'1px solid rgba(255,255,255,0.07)',
+          animation:'pulse 1.5s infinite',
+        }} />
       ))}
     </div>
   );
@@ -259,12 +329,15 @@ function LoadingSkeleton() {
 
 function ErrorBox({ msg }) {
   return (
-    <div style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)',
-      borderRadius: 12, padding: 20, color: '#f87171' }}>⚠ {msg}</div>
+    <div style={{
+      background:'rgba(239,68,68,0.06)', border:'1px solid rgba(239,68,68,0.15)',
+      borderRadius:12, padding:'16px 20px', color:'#ef4444', fontSize:13,
+    }}>
+      Fout: {msg}
+    </div>
   );
 }
 
-/* ── Helpers ── */
 function fmtDur(sec) {
   if (!sec || sec === 0) return '0s';
   if (sec < 60) return `${sec}s`;
@@ -272,82 +345,7 @@ function fmtDur(sec) {
 }
 
 function scoreColor(score) {
-  if (score >= 70) return '#34d399';
+  if (score >= 70) return '#22c55e';
   if (score >= 40) return '#fbbf24';
-  return '#94a3b8';
+  return '#71717a';
 }
-
-function insightStyle(type) {
-  const map = {
-    positive: { borderColor: 'rgba(52,211,153,0.3)',  background: 'rgba(52,211,153,0.06)'  },
-    warning:  { borderColor: 'rgba(248,113,113,0.3)', background: 'rgba(248,113,113,0.06)' },
-    tip:      { borderColor: 'rgba(59,130,246,0.3)',  background: 'rgba(59,130,246,0.06)'  },
-  };
-  return map[type] || map.tip;
-}
-
-/* ── Styles ── */
-const styles = {
-  periodRow: { display: 'flex', gap: 6, marginBottom: 24, alignItems: 'center' },
-  periodBtn: { padding: '6px 14px', borderRadius: 8, border: '1px solid #1e2d3d',
-    background: 'none', color: '#475569', cursor: 'pointer', fontSize: 12, fontWeight: 600 },
-  periodBtnActive: { background: '#1d4ed8', borderColor: '#1d4ed8', color: '#fff' },
-  refreshBtn: { marginLeft: 'auto', padding: '6px 14px', borderRadius: 8,
-    border: '1px solid #1e2d3d', background: 'rgba(255,255,255,0.03)',
-    color: '#64748b', cursor: 'pointer', fontSize: 12 },
-
-  kpiGrid: { display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 24 },
-  kpiCard: { flex: '1 1 130px', background: 'rgba(255,255,255,0.02)', border: '1px solid #1e2d3d',
-    borderRadius: 14, padding: '16px 20px', textAlign: 'center' },
-  kpiIcon:  { fontSize: 20, marginBottom: 8 },
-  kpiValue: { fontSize: 26, fontWeight: 800, lineHeight: 1, marginBottom: 4 },
-  kpiLabel: { fontSize: 11, color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' },
-
-  insightGrid: { display: 'flex', flexDirection: 'column', gap: 10 },
-  insightCard: { display: 'flex', gap: 14, padding: '14px 18px', borderRadius: 12,
-    border: '1px solid', alignItems: 'flex-start' },
-  insightIcon:  { fontSize: 20, flexShrink: 0, marginTop: 1 },
-  insightTitle: { fontWeight: 700, color: '#e2e8f0', fontSize: 14, marginBottom: 3 },
-  insightText:  { fontSize: 13, color: '#94a3b8', lineHeight: 1.5 },
-
-  twoCol: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 8 },
-  section: { background: 'rgba(255,255,255,0.02)', border: '1px solid #1e2d3d',
-    borderRadius: 14, padding: '18px 20px', marginBottom: 16 },
-  sectionTitle: { fontSize: 13, fontWeight: 700, color: '#e2e8f0', marginBottom: 14 },
-
-  tableWrap: { overflowX: 'auto' },
-  table: { width: '100%', borderCollapse: 'collapse', fontSize: 12 },
-  th: { padding: '8px 10px', textAlign: 'left', fontSize: 10, fontWeight: 700,
-    textTransform: 'uppercase', letterSpacing: '0.06em', color: '#334155',
-    borderBottom: '1px solid #1e2d3d' },
-  tr: { borderBottom: '1px solid #111e30' },
-  td: { padding: '10px 10px', verticalAlign: 'middle' },
-  center: { textAlign: 'center' },
-  pageUrl: { fontFamily: 'monospace', fontSize: 12, color: '#60a5fa',
-    maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  pageTitle: { fontSize: 10, color: '#334155', marginTop: 2 },
-
-  leaderRow: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0',
-    borderBottom: '1px solid #111e30' },
-  leaderRank: { fontSize: 12, color: '#334155', fontWeight: 700, width: 24, textAlign: 'center' },
-  leaderInfo: { flex: 1 },
-  leaderName: { fontSize: 13, fontWeight: 600, color: '#e2e8f0' },
-  leaderMeta: { fontSize: 11, color: '#475569', marginTop: 2 },
-  leaderScoreWrap: { textAlign: 'center', flexShrink: 0 },
-  leaderScore: { fontSize: 20, fontWeight: 800, lineHeight: 1 },
-  leaderScoreLabel: { fontSize: 9, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.06em' },
-
-  pathRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '8px 0', borderBottom: '1px solid #111e30', gap: 8 },
-  pathLine: { fontSize: 11, fontFamily: 'monospace', color: '#94a3b8',
-    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  pathCount: { fontSize: 12, fontWeight: 700, color: '#60a5fa', flexShrink: 0 },
-
-  hourGrid: { display: 'flex', gap: 3, alignItems: 'flex-end', height: 110 },
-  hourCol:  { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 },
-  hourBarWrap: { height: 80, display: 'flex', alignItems: 'flex-end' },
-  hourBar: { width: '100%', minWidth: 6, borderRadius: '3px 3px 0 0', transition: 'height 0.4s ease' },
-  hourLabel: { fontSize: 9, color: '#334155', lineHeight: 1 },
-  hourCount: { fontSize: 9, color: '#475569' },
-  hourHint: { fontSize: 12, color: '#475569', marginTop: 12, textAlign: 'center' },
-};

@@ -61,14 +61,15 @@ router.post('/', async (req, res) => {
     // 2. Upsert visitor (maak aan of update last_seen + visit_count)
     const { data: existingVisitors } = await supabase
       .from('visitors')
-      .select('id, visit_count')
+      .select('id, visit_count, last_session_id')
       .eq('ip_address', ip)
       .limit(1);
 
     let visitor;
     if (existingVisitors && existingVisitors.length > 0) {
-      // Bestaande bezoeker: update
+      // Bestaande bezoeker: update — alleen visit_count verhogen als het een NIEUWE sessie is
       const existing = existingVisitors[0];
+      const isNewSession = existing.last_session_id !== session_id;
       const { data, error } = await supabase
         .from('visitors')
         .update({
@@ -85,7 +86,8 @@ router.post('/', async (req, res) => {
           hostname: ipData.hostname,
           is_interesting: interesting,
           last_seen: new Date().toISOString(),
-          visit_count: (existing.visit_count || 0) + 1,
+          last_session_id: session_id,
+          visit_count: isNewSession ? (existing.visit_count || 0) + 1 : existing.visit_count,
         })
         .eq('id', existing.id)
         .select()
