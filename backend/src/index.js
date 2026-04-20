@@ -7,6 +7,7 @@ const rateLimit = require('express-rate-limit');
 const trackRouter     = require('./routes/track');
 const dashboardRouter = require('./routes/dashboard');
 const sessionsRouter  = require('./routes/sessions');
+const analyticsRouter = require('./routes/analytics');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -44,9 +45,10 @@ const trackLimiter = rateLimit({
 });
 
 // --- Routes ---
-app.use('/api/track',     trackLimiter, trackRouter);
-app.use('/api/sessions',  sessionsRouter);
-app.use('/api/dashboard', dashboardRouter);
+app.use('/api/track',      trackLimiter, trackRouter);
+app.use('/api/sessions',   sessionsRouter);
+app.use('/api/analytics',  analyticsRouter);
+app.use('/api/dashboard',  dashboardRouter);
 
 // Health check
 app.get('/health', (req, res) => {

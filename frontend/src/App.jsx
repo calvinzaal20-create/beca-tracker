@@ -5,11 +5,13 @@ import { StatCard } from './components/StatCard';
 import { VisitorTable } from './components/VisitorTable';
 import { VisitorDetail } from './components/VisitorDetail';
 import { AlertsList } from './components/AlertsList';
+import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 
 const TABS = [
-  { id: 'overview',  label: 'Overzicht',  icon: '◈' },
-  { id: 'visitors',  label: 'Bezoekers',  icon: '◉' },
-  { id: 'alerts',    label: 'Meldingen',  icon: '◎' },
+  { id: 'overview',   label: 'Overzicht',  icon: '◈' },
+  { id: 'visitors',   label: 'Bezoekers',  icon: '◉' },
+  { id: 'analytics',  label: 'Analyses',   icon: '◐' },
+  { id: 'alerts',     label: 'Meldingen',  icon: '◎' },
 ];
 
 export default function App() {
@@ -182,6 +184,14 @@ export default function App() {
                 )}
               </>
             )}
+          </div>
+        )}
+
+        {/* ── ANALYSES ── */}
+        {activeTab === 'analytics' && (
+          <div className="fadeIn">
+            <PageHeader title="Analyses" subtitle="Gedragsdata van bezoekers op becaone.com" />
+            <AnalyticsDashboard />
           </div>
         )}
 

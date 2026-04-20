@@ -26,7 +26,8 @@
       "Bash(curl -s \"https://beca-tracker-production.up.railway.app/api/dashboard/stats\")",
       "Bash(curl -s https://beca-tracker-production.up.railway.app/api/dashboard/visitors -H 'Authorization: Bearer ')",
       "Bash(curl -s -X POST https://beca-tracker-production.up.railway.app/api/track -H 'Content-Type: application/json' -H 'Origin: https://becaone.com' -d '{\"session_id\":\"corstest-001\",\"page_url\":\"https://becaone.com/over-ons\",\"page_title\":\"Over Ons\",\"referrer\":\"https://google.com\"}')",
-      "Bash(curl -s \"https://beca-tracker-production.up.railway.app/api/dashboard/visitors?limit=5\")"
+      "Bash(curl -s \"https://beca-tracker-production.up.railway.app/api/dashboard/visitors?limit=5\")",
+      "Bash(node -e ' *)"
     ]
   }
 }
