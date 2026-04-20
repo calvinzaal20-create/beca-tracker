@@ -66,10 +66,19 @@ export default function App() {
       <aside style={styles.sidebar}>
         {/* Logo */}
         <div style={styles.logoWrap}>
-          <div style={styles.logoMark}>⚓</div>
-          <div>
-            <div style={styles.logoName}>BECA One</div>
-            <div style={styles.logoTag}>Visitor Intelligence</div>
+          <img
+            src="/logo.png"
+            alt="BECA One"
+            style={styles.logoImg}
+            onError={e => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+          />
+          {/* Fallback als logo.png nog niet aanwezig is */}
+          <div style={{ display: 'none', alignItems: 'center', gap: 10 }}>
+            <div style={styles.logoMark}>⚓</div>
+            <div>
+              <div style={styles.logoName}>BECA ONE.</div>
+              <div style={styles.logoTag}>Visitor Intelligence</div>
+            </div>
           </div>
         </div>
 
@@ -312,8 +321,17 @@ const styles = {
     padding: '0 0 20px',
   },
   logoWrap: {
-    display: 'flex', alignItems: 'center', gap: 12,
-    padding: '24px 20px 20px', borderBottom: '1px solid #111e30', marginBottom: 20,
+    padding: '16px 16px 14px',
+    borderBottom: '1px solid #111e30',
+    marginBottom: 20,
+  },
+  logoImg: {
+    width: '100%',
+    height: 64,
+    objectFit: 'contain',
+    objectPosition: 'left center',
+    borderRadius: 10,
+    display: 'block',
   },
   logoMark: {
     width: 38, height: 38, borderRadius: 10,
