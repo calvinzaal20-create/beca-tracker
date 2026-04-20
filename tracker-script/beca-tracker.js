@@ -1,177 +1,185 @@
 /**
- * BECA One - Visitor Tracker Script
- * Versie: 1.0.0
+ * BECA One Visitor Tracker + Session Recorder
+ * Versie: 2.0.0
  *
- * Plaatsing: voeg onderstaande <script> tag toe aan elke pagina van de BECA One website,
- * vlak voor de sluitende </body> tag:
+ * Plaatsing op becaone.com — vlak voor </body>:
  *
- *   <script src="/beca-tracker.js" data-endpoint="https://jouw-backend.nl/api/track"></script>
- *
- * Of met inline configuratie:
- *
+ *   <script src="https://cdn.jsdelivr.net/npm/rrweb@latest/dist/rrweb.min.js"></script>
  *   <script>
- *     window.BECA_TRACKER_ENDPOINT = 'https://jouw-backend.nl/api/track';
+ *     (function() { ... dit script ... })();
  *   </script>
- *   <script src="/beca-tracker.js"></script>
  *
- * Het script is ~2KB geminimificeerd en heeft geen externe afhankelijkheden.
+ * Of inline (alles in één blok) — zie onderstaand inline voorbeeld.
  */
 
 (function () {
   'use strict';
 
-  // --- Configuratie ---
-  const ENDPOINT =
-    window.BECA_TRACKER_ENDPOINT ||
-    document.currentScript?.getAttribute('data-endpoint') ||
-    'http://localhost:3001/api/track';
+  var TRACK_ENDPOINT   = 'https://beca-tracker-production.up.railway.app/api/track';
+  var SESSION_ENDPOINT = 'https://beca-tracker-production.up.railway.app/api/sessions';
+  var HEARTBEAT_MS     = 15000;   // Heartbeat interval
+  var RECORD_FLUSH_MS  = 10000;   // Stuur recording events elke 10 seconden
+  var SESSION_KEY      = 'beca_sid';
 
-  const HEARTBEAT_INTERVAL_MS = 15000; // Stuur elke 15 sec een heartbeat
-  const SESSION_KEY = 'beca_session_id';
-
-  // --- Hulpfuncties ---
-
-  /** Genereert een willekeurige sessie-ID (per browsertab, resetbaar) */
-  function generateId() {
-    return Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
+  /* ── Hulpfuncties ── */
+  function uid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   }
 
-  /** Haalt bestaande sessie-ID op of maakt een nieuwe aan */
   function getSessionId() {
     try {
-      let id = sessionStorage.getItem(SESSION_KEY);
-      if (!id) {
-        id = generateId();
-        sessionStorage.setItem(SESSION_KEY, id);
-      }
+      var id = sessionStorage.getItem(SESSION_KEY);
+      if (!id) { id = uid(); sessionStorage.setItem(SESSION_KEY, id); }
       return id;
-    } catch {
-      return generateId();
-    }
+    } catch (e) { return uid(); }
   }
 
-  /** Stuur data naar de backend (fire-and-forget, crasht nooit de pagina) */
-  function sendEvent(payload) {
+  function send(endpoint, payload) {
     try {
-      // Gebruik sendBeacon als beschikbaar (werkt ook bij pagina-verlating)
+      var body = JSON.stringify(payload);
       if (navigator.sendBeacon) {
-        const blob = new Blob([JSON.stringify(payload)], {
-          type: 'application/json',
-        });
-        navigator.sendBeacon(ENDPOINT, blob);
+        navigator.sendBeacon(endpoint, new Blob([body], { type: 'application/json' }));
       } else {
-        fetch(ENDPOINT, {
+        fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          body: body,
           keepalive: true,
-        }).catch(() => {});
+        }).catch(function () {});
       }
-    } catch {
-      // Nooit fouten gooien naar de bezoekers-pagina
-    }
+    } catch (e) {}
   }
 
-  // --- Tracking logica ---
+  /* ── Page view tracking ── */
+  var sessionId   = getSessionId();
+  var startTime   = Date.now();
+  var currentUrl  = location.href;
+  var visitorId   = null; // Opgeslagen na eerste track response
+  var hbTimer     = null;
+  var lastUrl     = location.href;
 
-  const sessionId = getSessionId();
-  let startTime = Date.now();
-  let currentUrl = location.href;
-  let heartbeatTimer = null;
-
-  /** Stuurt een page view event voor de huidige pagina */
-  function trackPageView() {
-    startTime = Date.now();
+  function trackPage() {
+    startTime  = Date.now();
     currentUrl = location.href;
 
-    sendEvent({
-      event: 'pageview',
-      session_id: sessionId,
-      page_url: currentUrl,
-      page_title: document.title || '',
-      referrer: document.referrer || '',
-      duration_sec: 0,
-    });
+    // Gebruik fetch zodat we visitorId kunnen opslaan
+    try {
+      fetch(TRACK_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event:       'pageview',
+          session_id:  sessionId,
+          page_url:    currentUrl,
+          page_title:  document.title || '',
+          referrer:    document.referrer || '',
+          duration_sec: 0,
+        }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) { if (d.visitor_id) visitorId = d.visitor_id; })
+        .catch(function () {});
+    } catch (e) {}
 
-    // Start heartbeat
-    clearInterval(heartbeatTimer);
-    heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);
+    clearInterval(hbTimer);
+    hbTimer = setInterval(function () {
+      send(TRACK_ENDPOINT, {
+        event:       'heartbeat',
+        session_id:  sessionId,
+        page_url:    currentUrl,
+        duration_sec: Math.round((Date.now() - startTime) / 1000),
+      });
+    }, HEARTBEAT_MS);
   }
 
-  /** Stuurt verblijfsduur update */
-  function sendHeartbeat() {
-    const duration = Math.round((Date.now() - startTime) / 1000);
-    sendEvent({
-      event: 'heartbeat',
-      session_id: sessionId,
-      page_url: currentUrl,
-      duration_sec: duration,
-    });
-  }
-
-  /** Stopt heartbeat en stuurt laatste duratie bij pagina-verlating */
-  function handlePageLeave() {
-    clearInterval(heartbeatTimer);
-    const duration = Math.round((Date.now() - startTime) / 1000);
-    if (duration > 1) {
-      sendEvent({
-        event: 'heartbeat',
-        session_id: sessionId,
-        page_url: currentUrl,
-        duration_sec: duration,
+  function onLeave() {
+    clearInterval(hbTimer);
+    var dur = Math.round((Date.now() - startTime) / 1000);
+    if (dur > 1) {
+      send(TRACK_ENDPOINT, {
+        event:       'heartbeat',
+        session_id:  sessionId,
+        page_url:    currentUrl,
+        duration_sec: dur,
       });
     }
   }
 
-  // --- SPA-ondersteuning (React, Vue, etc.) ---
-  // Luistert naar URL-wijzigingen zonder volledige pagina-herlaad
-
-  let lastTrackedUrl = '';
-
-  function checkUrlChange() {
-    if (location.href !== lastTrackedUrl) {
-      handlePageLeave();
-      lastTrackedUrl = location.href;
-      trackPageView();
+  /* ── SPA navigatie detectie ── */
+  function checkNav() {
+    if (location.href !== lastUrl) {
+      onLeave(); lastUrl = location.href; trackPage();
     }
   }
 
-  // Overschrijf History API om navigatie te detecteren
-  const originalPushState = history.pushState;
-  const originalReplaceState = history.replaceState;
-
-  history.pushState = function (...args) {
-    originalPushState.apply(this, args);
-    setTimeout(checkUrlChange, 0);
-  };
-
-  history.replaceState = function (...args) {
-    originalReplaceState.apply(this, args);
-    setTimeout(checkUrlChange, 0);
-  };
-
-  window.addEventListener('popstate', () => setTimeout(checkUrlChange, 0));
-
-  // --- Pagina verlaten ---
-  window.addEventListener('beforeunload', handlePageLeave);
-  window.addEventListener('pagehide', handlePageLeave);
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') handlePageLeave();
-    if (document.visibilityState === 'visible') {
-      startTime = Date.now(); // Reset timer na terugkeer
-    }
+  var _push    = history.pushState;
+  var _replace = history.replaceState;
+  history.pushState    = function () { _push.apply(this, arguments);    setTimeout(checkNav, 0); };
+  history.replaceState = function () { _replace.apply(this, arguments); setTimeout(checkNav, 0); };
+  window.addEventListener('popstate',     function () { setTimeout(checkNav, 0); });
+  window.addEventListener('beforeunload', onLeave);
+  window.addEventListener('pagehide',     onLeave);
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden')  onLeave();
+    if (document.visibilityState === 'visible') startTime = Date.now();
   });
 
-  // --- Start ---
-  lastTrackedUrl = location.href;
+  /* ── Session recording via rrweb ── */
+  var recordEvents  = [];
+  var chunkIndex    = 0;
+  var stopRecording = null;
+  var flushTimer    = null;
 
-  // Wacht tot DOM geladen is voor de paginatitel
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', trackPageView);
-  } else {
-    trackPageView();
+  function flushRecording(force) {
+    if (recordEvents.length === 0) return;
+    var chunk = recordEvents.splice(0); // leegmaken en kopie nemen
+    send(SESSION_ENDPOINT, {
+      session_id:  sessionId,
+      visitor_id:  visitorId,
+      events:      chunk,
+      chunk_index: chunkIndex++,
+    });
   }
 
-  // Maak de sessie-ID beschikbaar voor debugging
-  window.__beca_session = sessionId;
+  function startRecording() {
+    if (typeof window.rrweb === 'undefined') return; // rrweb niet geladen
+
+    stopRecording = window.rrweb.record({
+      emit: function (event) {
+        recordEvents.push(event);
+      },
+      // Privacy: mask wachtwoorden en verborgen inputs
+      maskInputOptions: { password: true },
+      // Sla geen tekst op in invoervelden (privacy)
+      maskAllInputs: false,
+      // Blokkeer bepaalde elementen (bv. creditcard velden)
+      blockClass: 'beca-no-record',
+      maskTextClass: 'beca-mask',
+    });
+
+    // Flush elke 10 seconden
+    flushTimer = setInterval(flushRecording, RECORD_FLUSH_MS);
+
+    // Flush bij pagina verlaten
+    window.addEventListener('beforeunload', function () {
+      flushRecording(true);
+      if (stopRecording) stopRecording();
+    });
+  }
+
+  /* ── Start ── */
+  lastUrl = location.href;
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () {
+      trackPage();
+      startRecording();
+    });
+  } else {
+    trackPage();
+    startRecording();
+  }
+
+  // Publieke debug interface
+  window.__beca = { sessionId: sessionId, getVisitorId: function () { return visitorId; } };
 })();

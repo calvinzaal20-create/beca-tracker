@@ -4,8 +4,9 @@ const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 
-const trackRouter = require('./routes/track');
+const trackRouter     = require('./routes/track');
 const dashboardRouter = require('./routes/dashboard');
+const sessionsRouter  = require('./routes/sessions');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -43,7 +44,8 @@ const trackLimiter = rateLimit({
 });
 
 // --- Routes ---
-app.use('/api/track', trackLimiter, trackRouter);
+app.use('/api/track',     trackLimiter, trackRouter);
+app.use('/api/sessions',  sessionsRouter);
 app.use('/api/dashboard', dashboardRouter);
 
 // Health check

@@ -34,4 +34,6 @@ export const api = {
   getStats: (days = 30) => apiFetch(`/api/dashboard/stats?days=${days}`),
 
   getAlerts: (limit = 20) => apiFetch(`/api/dashboard/alerts?limit=${limit}`),
+
+  getSession: (sessionId) => apiFetch(`/api/sessions/${sessionId}`),
 };

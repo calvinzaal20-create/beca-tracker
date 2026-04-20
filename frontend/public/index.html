@@ -3,11 +3,29 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#1a3a5c" />
-    <title>BECA One - Bezoeker Tracker</title>
+    <title>BECA One — Visitor Intelligence</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <!-- rrweb player voor session replay in het dashboard -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/rrweb-player@latest/dist/style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/rrweb-player@latest/dist/index.js"></script>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body, #root { height: 100%; }
+      body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        background: #080d1a;
+        color: #e2e8f0;
+        -webkit-font-smoothing: antialiased;
+      }
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 3px; }
+      button:disabled { opacity: 0.4; cursor: not-allowed; }
+      * { transition: background-color 0.15s, opacity 0.15s, border-color 0.15s; }
+    </style>
   </head>
   <body>
-    <noscript>JavaScript is vereist voor dit dashboard.</noscript>
     <div id="root"></div>
   </body>
 </html>

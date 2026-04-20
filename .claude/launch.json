@@ -2,7 +2,13 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "dashboard",
+      "name": "Beca Tracker – Backend (nodemon)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "backend"],
+      "port": 3001
+    },
+    {
+      "name": "Beca Tracker – Frontend (React)",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["start", "--prefix", "frontend"],
       "port": 3000

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useApi } from './hooks/useApi';
 import { api } from './api/client';
 import { StatCard } from './components/StatCard';
@@ -6,246 +6,178 @@ import { VisitorTable } from './components/VisitorTable';
 import { VisitorDetail } from './components/VisitorDetail';
 import { AlertsList } from './components/AlertsList';
 
-const TABS = ['Overzicht', 'Bezoekers', 'Meldingen'];
+const TABS = [
+  { id: 'overview',  label: 'Overzicht',  icon: '◈' },
+  { id: 'visitors',  label: 'Bezoekers',  icon: '◉' },
+  { id: 'alerts',    label: 'Meldingen',  icon: '◎' },
+];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('Overzicht');
+  const [activeTab, setActiveTab]           = useState('overview');
   const [selectedVisitor, setSelectedVisitor] = useState(null);
-  const [search, setSearch] = useState('');
+  const [search, setSearch]                 = useState('');
   const [onlyInteresting, setOnlyInteresting] = useState(false);
-  const [page, setPage] = useState(1);
-  const [statDays, setStatDays] = useState(30);
+  const [page, setPage]                     = useState(1);
+  const [statDays, setStatDays]             = useState(30);
+  const [liveCount, setLiveCount]           = useState(0);
+  const [tick, setTick]                     = useState(0);
 
-  // Statistieken
-  const {
-    data: stats,
-    loading: statsLoading,
-    refresh: refreshStats,
-  } = useApi(() => api.getStats(statDays), [statDays]);
-
-  // Bezoekers
-  const {
-    data: visitorsData,
-    loading: visitorsLoading,
-    error: visitorsError,
-    refresh: refreshVisitors,
-  } = useApi(
-    () => api.getVisitors({ page, limit: 25, search, interesting: onlyInteresting }),
-    [page, search, onlyInteresting]
-  );
-
-  // Meldingen
-  const {
-    data: alertsData,
-    loading: alertsLoading,
-  } = useApi(() => api.getAlerts(30), []);
-
-  const handleSearch = useCallback((e) => {
-    setSearch(e.target.value);
-    setPage(1);
+  // Auto-refresh elke 30 seconden
+  useEffect(() => {
+    const t = setInterval(() => setTick(n => n + 1), 30000);
+    return () => clearInterval(t);
   }, []);
 
-  const handleRefresh = () => {
-    refreshStats();
-    refreshVisitors();
-  };
+  const { data: stats,        refresh: refreshStats }    = useApi(() => api.getStats(statDays), [statDays, tick]);
+  const { data: visitorsData, loading: visitorsLoading,
+          error: visitorsError, refresh: refreshVisitors } = useApi(
+    () => api.getVisitors({ page, limit: 25, search, interesting: onlyInteresting }),
+    [page, search, onlyInteresting, tick]
+  );
+  const { data: alertsData } = useApi(() => api.getAlerts(30), [tick]);
+
+  // Live teller: bezoekers van de afgelopen 5 minuten
+  useEffect(() => {
+    if (visitorsData?.visitors) {
+      const fiveMin = Date.now() - 5 * 60 * 1000;
+      setLiveCount(visitorsData.visitors.filter(v => new Date(v.last_seen) > fiveMin).length);
+    }
+  }, [visitorsData]);
+
+  const handleSearch = useCallback(e => { setSearch(e.target.value); setPage(1); }, []);
+
+  const alertCount = alertsData?.alerts?.length || 0;
+  const interestingCount = stats?.interestingVisitors || 0;
 
   return (
     <div style={styles.app}>
-      {/* Sidebar */}
+      {/* Globale CSS animaties */}
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.85)} }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+        .fadeIn { animation: fadeIn 0.3s ease forwards; }
+        tr:hover td { background: rgba(255,255,255,0.02) !important; }
+      `}</style>
+
+      {/* ── Sidebar ── */}
       <aside style={styles.sidebar}>
-        <div style={styles.logo}>
-          <div style={styles.logoIcon}>🚢</div>
+        {/* Logo */}
+        <div style={styles.logoWrap}>
+          <div style={styles.logoMark}>⚓</div>
           <div>
-            <div style={styles.logoTitle}>BECA One</div>
-            <div style={styles.logoSub}>Bezoeker Tracker</div>
+            <div style={styles.logoName}>BECA One</div>
+            <div style={styles.logoTag}>Visitor Intelligence</div>
           </div>
         </div>
 
-        <nav style={styles.nav}>
-          {TABS.map((tab) => (
-            <button
-              key={tab}
-              style={{
-                ...styles.navBtn,
-                ...(activeTab === tab ? styles.navBtnActive : {}),
-              }}
-              onClick={() => setActiveTab(tab)}
-            >
-              {TAB_ICONS[tab]} {tab}
-              {tab === 'Meldingen' && alertsData?.alerts?.length > 0 && (
-                <span style={styles.badge}>{alertsData.alerts.length}</span>
-              )}
-            </button>
-          ))}
-        </nav>
-
-        <div style={styles.sidebarFooter}>
-          <button style={styles.refreshBtn} onClick={handleRefresh}>
-            ↻ Vernieuwen
-          </button>
-        </div>
-      </aside>
-
-      {/* Hoofdinhoud */}
-      <main style={styles.main}>
-        {/* Header */}
-        <div style={styles.header}>
-          <h1 style={styles.pageTitle}>{activeTab}</h1>
-          <div style={styles.headerRight}>
-            <span style={styles.lastUpdate}>
-              {new Date().toLocaleString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          </div>
-        </div>
-
-        {/* === TAB: OVERZICHT === */}
-        {activeTab === 'Overzicht' && (
-          <div>
-            {/* Periode selector */}
-            <div style={styles.periodSelector}>
-              {[7, 30, 90].map((d) => (
-                <button
-                  key={d}
-                  style={{
-                    ...styles.periodBtn,
-                    ...(statDays === d ? styles.periodBtnActive : {}),
-                  }}
-                  onClick={() => setStatDays(d)}
-                >
-                  {d} dagen
-                </button>
-              ))}
-            </div>
-
-            {/* Stat kaarten */}
-            {statsLoading ? (
-              <div style={styles.loading}>Statistieken laden...</div>
-            ) : stats ? (
-              <>
-                <div style={styles.statGrid}>
-                  <StatCard
-                    title="Unieke bezoekers"
-                    value={stats.totalVisitors}
-                    subtitle="Alle tijden"
-                    icon="👥"
-                  />
-                  <StatCard
-                    title="Interessante bedrijven"
-                    value={stats.interestingVisitors}
-                    subtitle="Op watchlist"
-                    color="#f59e0b"
-                    icon="★"
-                  />
-                  <StatCard
-                    title="Paginaweergaven"
-                    value={stats.totalPageViews}
-                    subtitle={`Laatste ${stats.periodDays} dagen`}
-                    color="#4361ee"
-                    icon="📄"
-                  />
-                  <StatCard
-                    title="Actieve bezoekers"
-                    value={stats.recentVisitors}
-                    subtitle={`Laatste ${stats.periodDays} dagen`}
-                    color="#22c55e"
-                    icon="🟢"
-                  />
-                </div>
-
-                {/* Top pagina's + landen */}
-                <div style={styles.twoCol}>
-                  <div style={styles.card}>
-                    <div style={styles.cardTitle}>Top pagina's</div>
-                    {stats.topPages.length === 0 && (
-                      <div style={styles.empty}>Nog geen data.</div>
-                    )}
-                    {stats.topPages.map(({ url, views }) => (
-                      <div key={url} style={styles.topRow}>
-                        <span style={styles.topUrl} title={url}>
-                          {url.length > 45 ? url.slice(0, 45) + '…' : url}
-                        </span>
-                        <span style={styles.topCount}>{views}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div style={styles.card}>
-                    <div style={styles.cardTitle}>Top landen</div>
-                    {stats.topCountries.length === 0 && (
-                      <div style={styles.empty}>Nog geen data.</div>
-                    )}
-                    {stats.topCountries.map(({ country, visitors: cnt }) => (
-                      <div key={country} style={styles.topRow}>
-                        <span>{country}</span>
-                        <span style={styles.topCount}>{cnt}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </>
-            ) : null}
+        {/* Live indicator */}
+        {liveCount > 0 && (
+          <div style={styles.liveBadge}>
+            <span style={styles.liveDot} />
+            {liveCount} live op site
           </div>
         )}
 
-        {/* === TAB: BEZOEKERS === */}
-        {activeTab === 'Bezoekers' && (
-          <div>
-            {/* Filters */}
-            <div style={styles.filters}>
-              <input
-                style={styles.searchInput}
-                type="text"
-                placeholder="Zoek op bedrijf, stad of IP..."
-                value={search}
-                onChange={handleSearch}
-              />
-              <label style={styles.filterLabel}>
-                <input
-                  type="checkbox"
-                  checked={onlyInteresting}
-                  onChange={(e) => {
-                    setOnlyInteresting(e.target.checked);
-                    setPage(1);
-                  }}
-                  style={{ marginRight: 6 }}
-                />
-                Alleen interessante bedrijven
-              </label>
-            </div>
+        {/* Nav */}
+        <nav style={styles.nav}>
+          {TABS.map(tab => {
+            const active = activeTab === tab.id;
+            const badge = tab.id === 'alerts' && alertCount
+              ? alertCount
+              : tab.id === 'visitors' && interestingCount
+              ? interestingCount
+              : 0;
+            return (
+              <button
+                key={tab.id}
+                style={{ ...styles.navBtn, ...(active ? styles.navBtnActive : {}) }}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                <span style={styles.navIcon}>{tab.icon}</span>
+                <span>{tab.label}</span>
+                {badge > 0 && <span style={styles.navBadge}>{badge}</span>}
+              </button>
+            );
+          })}
+        </nav>
 
-            {visitorsLoading && <div style={styles.loading}>Bezoekers laden...</div>}
-            {visitorsError && <div style={styles.error}>Fout: {visitorsError}</div>}
+        <div style={styles.sidebarFooter}>
+          <div style={styles.footerDivider} />
+          <button style={styles.refreshBtn} onClick={() => { refreshStats(); refreshVisitors(); }}>
+            <span>↻</span> Vernieuwen
+          </button>
+          <div style={styles.footerHint}>Auto-refresh: 30s</div>
+        </div>
+      </aside>
 
-            {visitorsData && (
+      {/* ── Hoofdinhoud ── */}
+      <main style={styles.main}>
+
+        {/* ── OVERZICHT ── */}
+        {activeTab === 'overview' && (
+          <div className="fadeIn">
+            <PageHeader title="Overzicht" subtitle="Realtime bezoekersanalyse voor becaone.com">
+              <PeriodPicker value={statDays} onChange={setStatDays} />
+            </PageHeader>
+
+            {stats ? (
               <>
-                <div style={styles.tableInfo}>
-                  {visitorsData.total} bezoeker{visitorsData.total !== 1 ? 's' : ''} gevonden
+                <div style={styles.statGrid}>
+                  <StatCard title="Unieke bedrijven"       value={stats.totalVisitors}      color="blue"   icon="🏢" subtitle="Alle tijden" />
+                  <StatCard title="Hot leads"              value={stats.interestingVisitors} color="gold"   icon="🔥" subtitle="Op watchlist" />
+                  <StatCard title="Paginaweergaven"        value={stats.totalPageViews}      color="purple" icon="📄" subtitle={`Laatste ${statDays} dagen`} />
+                  <StatCard title="Actieve bezoekers"      value={stats.recentVisitors}      color="green"  icon="🟢" subtitle={`Laatste ${statDays} dagen`} />
                 </div>
-                <VisitorTable
-                  visitors={visitorsData.visitors}
-                  onSelect={setSelectedVisitor}
-                />
-                {/* Paginering */}
+
+                <div style={styles.twoCol}>
+                  <ChartCard title="Top pagina's" items={stats.topPages.map(p => ({ label: formatUrl(p.url), value: p.views }))} color="#3b82f6" />
+                  <ChartCard title="Top landen"   items={stats.topCountries.map(c => ({ label: c.country, value: c.visitors }))} color="#8b5cf6" />
+                </div>
+              </>
+            ) : (
+              <LoadingGrid />
+            )}
+          </div>
+        )}
+
+        {/* ── BEZOEKERS ── */}
+        {activeTab === 'visitors' && (
+          <div className="fadeIn">
+            <PageHeader title="Bezoekers" subtitle={visitorsData ? `${visitorsData.total} bedrijven gevonden` : 'Laden...'}>
+              <div style={styles.filterRow}>
+                <div style={styles.searchWrap}>
+                  <span style={styles.searchIcon}>🔍</span>
+                  <input
+                    style={styles.searchInput}
+                    placeholder="Zoek op bedrijf, stad, IP..."
+                    value={search}
+                    onChange={handleSearch}
+                  />
+                </div>
+                <label style={styles.filterToggle}>
+                  <div
+                    style={{ ...styles.toggle, ...(onlyInteresting ? styles.toggleOn : {}) }}
+                    onClick={() => { setOnlyInteresting(v => !v); setPage(1); }}
+                  >
+                    <div style={{ ...styles.toggleKnob, ...(onlyInteresting ? styles.toggleKnobOn : {}) }} />
+                  </div>
+                  <span style={{ color: '#94a3b8', fontSize: 13 }}>Alleen hot leads</span>
+                </label>
+              </div>
+            </PageHeader>
+
+            {visitorsLoading && <LoadingTable />}
+            {visitorsError  && <ErrorBox msg={visitorsError} />}
+
+            {visitorsData && !visitorsLoading && (
+              <>
+                <VisitorTable visitors={visitorsData.visitors} onSelect={setSelectedVisitor} />
                 {visitorsData.totalPages > 1 && (
                   <div style={styles.pagination}>
-                    <button
-                      style={styles.pageBtn}
-                      disabled={page <= 1}
-                      onClick={() => setPage((p) => p - 1)}
-                    >
-                      ← Vorige
-                    </button>
-                    <span style={styles.pageInfo}>
-                      Pagina {page} van {visitorsData.totalPages}
-                    </span>
-                    <button
-                      style={styles.pageBtn}
-                      disabled={page >= visitorsData.totalPages}
-                      onClick={() => setPage((p) => p + 1)}
-                    >
-                      Volgende →
-                    </button>
+                    <button style={styles.pageBtn} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>← Vorige</button>
+                    <span style={styles.pageInfo}>Pagina {page} / {visitorsData.totalPages}</span>
+                    <button style={styles.pageBtn} disabled={page >= visitorsData.totalPages} onClick={() => setPage(p => p + 1)}>Volgende →</button>
                   </div>
                 )}
               </>
@@ -253,153 +185,252 @@ export default function App() {
           </div>
         )}
 
-        {/* === TAB: MELDINGEN === */}
-        {activeTab === 'Meldingen' && (
-          <div>
-            <div style={styles.alertsInfo}>
-              Meldingen worden verstuurd als een bedrijf van de watchlist de site bezoekt.
-              Stel <code>INTERESTING_COMPANIES</code> in de backend .env in.
-            </div>
-            {alertsLoading ? (
-              <div style={styles.loading}>Meldingen laden...</div>
-            ) : (
-              <AlertsList alerts={alertsData?.alerts} />
-            )}
+        {/* ── MELDINGEN ── */}
+        {activeTab === 'alerts' && (
+          <div className="fadeIn">
+            <PageHeader title="Meldingen" subtitle="Hot leads van bedrijven op je watchlist">
+              <div style={styles.infoChip}>
+                Stel <code style={{ color: '#60a5fa' }}>INTERESTING_COMPANIES</code> in Railway in om meldingen te ontvangen
+              </div>
+            </PageHeader>
+            <AlertsList alerts={alertsData?.alerts} />
           </div>
         )}
       </main>
 
-      {/* Bezoeker detail paneel */}
+      {/* ── Detail paneel ── */}
       {selectedVisitor && (
-        <VisitorDetail
-          visitor={selectedVisitor}
-          onClose={() => setSelectedVisitor(null)}
-        />
+        <VisitorDetail visitor={selectedVisitor} onClose={() => setSelectedVisitor(null)} />
       )}
     </div>
   );
 }
 
-const TAB_ICONS = {
-  Overzicht: '📊',
-  Bezoekers: '👥',
-  Meldingen: '🔔',
-};
+/* ── Herbruikbare subcomponenten ── */
 
+function PageHeader({ title, subtitle, children }) {
+  return (
+    <div style={styles.pageHeader}>
+      <div>
+        <h1 style={styles.pageTitle}>{title}</h1>
+        {subtitle && <p style={styles.pageSubtitle}>{subtitle}</p>}
+      </div>
+      {children && <div style={styles.pageHeaderRight}>{children}</div>}
+    </div>
+  );
+}
+
+function PeriodPicker({ value, onChange }) {
+  return (
+    <div style={{ display: 'flex', gap: 4 }}>
+      {[7, 30, 90].map(d => (
+        <button
+          key={d}
+          style={{ ...styles.periodBtn, ...(value === d ? styles.periodBtnActive : {}) }}
+          onClick={() => onChange(d)}
+        >
+          {d}d
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ChartCard({ title, items, color }) {
+  const max = Math.max(...items.map(i => i.value), 1);
+  return (
+    <div style={styles.chartCard}>
+      <div style={styles.chartTitle}>{title}</div>
+      {items.length === 0 && <div style={{ color: '#475569', fontSize: 13, padding: '8px 0' }}>Geen data</div>}
+      {items.slice(0, 7).map(item => (
+        <div key={item.label} style={styles.chartRow}>
+          <div style={styles.chartLabel} title={item.label}>{item.label}</div>
+          <div style={styles.chartBarWrap}>
+            <div style={{ ...styles.chartBar, width: `${(item.value / max) * 100}%`, background: color }} />
+          </div>
+          <div style={styles.chartValue}>{item.value}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function LoadingGrid() {
+  return (
+    <div style={styles.statGrid}>
+      {[0,1,2,3].map(i => (
+        <div key={i} style={{ ...styles.skeleton, height: 110, borderRadius: 16 }} />
+      ))}
+    </div>
+  );
+}
+
+function LoadingTable() {
+  return (
+    <div style={{ borderRadius: 16, overflow: 'hidden', border: '1px solid #1e2d3d' }}>
+      {[0,1,2,3,4].map(i => (
+        <div key={i} style={{ ...styles.skeleton, height: 56, borderRadius: 0, marginBottom: 1 }} />
+      ))}
+    </div>
+  );
+}
+
+function ErrorBox({ msg }) {
+  return (
+    <div style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 12, padding: '16px 20px', color: '#f87171', fontSize: 14 }}>
+      ⚠ {msg}
+    </div>
+  );
+}
+
+function formatUrl(url) {
+  try { const u = new URL(url); return u.pathname || '/'; } catch { return url; }
+}
+
+/* ── Styles ── */
 const styles = {
   app: {
-    display: 'flex', minHeight: '100vh',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    background: '#f4f6fb',
-    color: '#1a1a2e',
+    display: 'flex', height: '100vh', overflow: 'hidden',
+    background: '#080d1a', color: '#e2e8f0',
   },
+
+  /* Sidebar */
   sidebar: {
-    width: 220, flexShrink: 0,
-    background: '#1a3a5c',
-    color: '#fff',
-    display: 'flex', flexDirection: 'column',
-    padding: '0 0 24px',
+    width: 230, flexShrink: 0, display: 'flex', flexDirection: 'column',
+    background: 'linear-gradient(180deg, #0a1020 0%, #080d1a 100%)',
+    borderRight: '1px solid #111e30',
+    padding: '0 0 20px',
   },
-  logo: {
+  logoWrap: {
     display: 'flex', alignItems: 'center', gap: 12,
-    padding: '24px 20px 20px',
-    borderBottom: '1px solid rgba(255,255,255,0.1)',
-    marginBottom: 16,
+    padding: '24px 20px 20px', borderBottom: '1px solid #111e30', marginBottom: 20,
   },
-  logoIcon: { fontSize: 28 },
-  logoTitle: { fontWeight: 700, fontSize: 16 },
-  logoSub: { fontSize: 11, opacity: 0.5, marginTop: 2 },
-  nav: { flex: 1, padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 4 },
+  logoMark: {
+    width: 38, height: 38, borderRadius: 10,
+    background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: 18, boxShadow: '0 4px 12px rgba(59,130,246,0.3)',
+  },
+  logoName: { fontSize: 15, fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.3px' },
+  logoTag:  { fontSize: 10, color: '#3b82f6', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 2 },
+
+  liveBadge: {
+    display: 'flex', alignItems: 'center', gap: 7,
+    margin: '0 12px 16px', padding: '7px 12px',
+    background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)',
+    borderRadius: 10, fontSize: 12, fontWeight: 600, color: '#34d399',
+  },
+  liveDot: {
+    width: 7, height: 7, borderRadius: '50%', background: '#10b981',
+    boxShadow: '0 0 6px #10b981', animation: 'pulse 2s infinite',
+  },
+
+  nav: { flex: 1, padding: '0 10px', display: 'flex', flexDirection: 'column', gap: 2 },
   navBtn: {
-    display: 'flex', alignItems: 'center', gap: 8,
-    padding: '10px 12px', borderRadius: 8,
-    background: 'none', border: 'none', cursor: 'pointer',
-    color: 'rgba(255,255,255,0.6)', fontSize: 14, fontWeight: 500,
-    textAlign: 'left', width: '100%',
-    transition: 'all 0.15s',
+    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+    borderRadius: 10, background: 'none', border: 'none', cursor: 'pointer',
+    color: '#475569', fontSize: 13, fontWeight: 500, textAlign: 'left', width: '100%',
   },
   navBtnActive: {
-    background: 'rgba(255,255,255,0.12)',
-    color: '#fff',
+    background: 'rgba(59,130,246,0.1)', color: '#60a5fa',
+    border: '1px solid rgba(59,130,246,0.2)',
   },
-  badge: {
-    marginLeft: 'auto',
-    background: '#f59e0b', color: '#fff',
-    borderRadius: 10, padding: '1px 6px', fontSize: 11, fontWeight: 700,
+  navIcon: { fontSize: 14, opacity: 0.8 },
+  navBadge: {
+    marginLeft: 'auto', background: '#1d4ed8', color: '#bfdbfe',
+    fontSize: 10, fontWeight: 700, borderRadius: 8, padding: '1px 6px', minWidth: 18, textAlign: 'center',
   },
-  sidebarFooter: { padding: '0 12px', marginTop: 16 },
+
+  sidebarFooter: { padding: '0 10px' },
+  footerDivider: { height: 1, background: '#111e30', margin: '12px 0' },
   refreshBtn: {
-    width: '100%', padding: '8px',
-    background: 'rgba(255,255,255,0.08)',
-    border: '1px solid rgba(255,255,255,0.15)',
-    borderRadius: 8, color: 'rgba(255,255,255,0.7)',
-    cursor: 'pointer', fontSize: 13,
+    display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+    padding: '9px 12px', borderRadius: 10,
+    background: 'rgba(255,255,255,0.04)', border: '1px solid #1e2d3d',
+    color: '#64748b', cursor: 'pointer', fontSize: 13, fontWeight: 500,
   },
-  main: { flex: 1, padding: '24px 32px', overflowY: 'auto', maxWidth: 1100 },
-  header: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    marginBottom: 24,
+  footerHint: { fontSize: 10, color: '#334155', textAlign: 'center', marginTop: 6 },
+
+  /* Main */
+  main: { flex: 1, overflow: 'auto', padding: '32px 36px' },
+
+  pageHeader: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+    marginBottom: 28, flexWrap: 'wrap', gap: 12,
   },
-  pageTitle: { margin: 0, fontSize: 24, fontWeight: 700, color: '#1a3a5c' },
-  headerRight: { fontSize: 13, color: '#aaa' },
-  lastUpdate: {},
-  periodSelector: { display: 'flex', gap: 8, marginBottom: 20 },
-  periodBtn: {
-    padding: '6px 16px', borderRadius: 20,
-    border: '1px solid #ddd', background: '#fff',
-    cursor: 'pointer', fontSize: 13, color: '#555',
+  pageTitle:    { fontSize: 24, fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.5px' },
+  pageSubtitle: { fontSize: 13, color: '#475569', marginTop: 3 },
+  pageHeaderRight: { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
+
+  filterRow: { display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' },
+  searchWrap: {
+    display: 'flex', alignItems: 'center', gap: 8,
+    background: 'rgba(255,255,255,0.04)', border: '1px solid #1e2d3d',
+    borderRadius: 10, padding: '7px 14px',
   },
-  periodBtnActive: {
-    background: '#1a3a5c', color: '#fff', borderColor: '#1a3a5c',
-  },
-  statGrid: {
-    display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 24,
-  },
-  twoCol: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 },
-  card: {
-    background: '#fff', borderRadius: 10,
-    padding: '20px 24px',
-    boxShadow: '0 1px 6px rgba(0,0,0,0.08)',
-  },
-  cardTitle: {
-    fontSize: 12, fontWeight: 700, textTransform: 'uppercase',
-    letterSpacing: '0.06em', color: '#888', marginBottom: 12,
-  },
-  topRow: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '6px 0', borderBottom: '1px solid #f5f5f5', fontSize: 13,
-  },
-  topUrl: {
-    fontFamily: 'monospace', fontSize: 12, color: '#333',
-    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200,
-  },
-  topCount: { fontWeight: 700, color: '#4361ee', flexShrink: 0, marginLeft: 8 },
-  filters: {
-    display: 'flex', gap: 16, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap',
-  },
+  searchIcon: { fontSize: 13, opacity: 0.5 },
   searchInput: {
-    padding: '8px 14px', borderRadius: 8,
-    border: '1px solid #ddd', fontSize: 14, minWidth: 260,
-    outline: 'none',
+    background: 'none', border: 'none', outline: 'none',
+    color: '#e2e8f0', fontSize: 13, width: 220,
   },
-  filterLabel: { fontSize: 14, color: '#555', cursor: 'pointer', userSelect: 'none' },
-  tableInfo: { fontSize: 13, color: '#aaa', marginBottom: 10 },
+  filterToggle: { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' },
+  toggle: {
+    width: 36, height: 20, borderRadius: 10, background: '#1e2d3d',
+    position: 'relative', cursor: 'pointer', transition: 'background 0.2s',
+  },
+  toggleOn: { background: '#1d4ed8' },
+  toggleKnob: {
+    position: 'absolute', top: 3, left: 3, width: 14, height: 14,
+    borderRadius: '50%', background: '#475569', transition: 'left 0.2s, background 0.2s',
+  },
+  toggleKnobOn: { left: 19, background: '#fff' },
+
+  infoChip: {
+    background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)',
+    borderRadius: 8, padding: '8px 14px', fontSize: 12, color: '#64748b',
+  },
+
+  periodBtn: {
+    padding: '6px 14px', borderRadius: 8, border: '1px solid #1e2d3d',
+    background: 'none', color: '#475569', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+  },
+  periodBtnActive: { background: '#1d4ed8', borderColor: '#1d4ed8', color: '#fff' },
+
+  statGrid: { display: 'flex', flexWrap: 'wrap', gap: 14, marginBottom: 24 },
+
+  twoCol: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 },
+  chartCard: {
+    background: 'rgba(255,255,255,0.02)', border: '1px solid #1e2d3d',
+    borderRadius: 16, padding: '20px 24px',
+  },
+  chartTitle: {
+    fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
+    letterSpacing: '0.08em', color: '#475569', marginBottom: 16,
+  },
+  chartRow: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 },
+  chartLabel: {
+    width: 130, fontSize: 12, color: '#94a3b8', overflow: 'hidden',
+    textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0,
+    fontFamily: 'monospace',
+  },
+  chartBarWrap: { flex: 1, height: 6, background: '#1e2d3d', borderRadius: 3, overflow: 'hidden' },
+  chartBar: { height: '100%', borderRadius: 3, transition: 'width 0.6s ease' },
+  chartValue: { width: 28, fontSize: 12, fontWeight: 700, color: '#64748b', textAlign: 'right' },
+
   pagination: {
     display: 'flex', justifyContent: 'center', alignItems: 'center',
-    gap: 16, marginTop: 20,
+    gap: 12, marginTop: 20,
   },
   pageBtn: {
-    padding: '8px 16px', borderRadius: 8,
-    border: '1px solid #ddd', background: '#fff',
-    cursor: 'pointer', fontSize: 13,
+    padding: '8px 16px', borderRadius: 8, border: '1px solid #1e2d3d',
+    background: 'rgba(255,255,255,0.03)', color: '#94a3b8', cursor: 'pointer', fontSize: 13,
   },
-  pageInfo: { fontSize: 13, color: '#888' },
-  alertsInfo: {
-    background: '#eff6ff', border: '1px solid #bfdbfe',
-    borderRadius: 8, padding: '12px 16px',
-    fontSize: 13, color: '#1e40af', marginBottom: 16,
+  pageInfo: { fontSize: 13, color: '#475569' },
+
+  skeleton: {
+    background: 'linear-gradient(90deg, #111e30 25%, #1a2d40 50%, #111e30 75%)',
+    backgroundSize: '200% 100%',
+    animation: 'shimmer 1.5s infinite',
+    marginBottom: 2,
   },
-  loading: { color: '#aaa', padding: '24px 0', fontSize: 14 },
-  error: { color: '#ef4444', padding: '12px 0', fontSize: 14 },
-  empty: { color: '#ccc', fontSize: 13, padding: '8px 0' },
 };
